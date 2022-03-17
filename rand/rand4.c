@@ -5,18 +5,13 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include <openssl/rand.h>
+#include <openssl/bn.h>
 #include <openssl/err.h>
 
 #define RAND_SIZE 32
 #define SEED_SIZE 64
 
-#define TO_INT256(bytes) (bytes[0]  << 120 | bytes[1]  << 112 | bytes[2]  << 104 | bytes[3]  << 96 \
-                          bytes[4]  <<  88 | bytes[5]  <<  80 | bytes[6]  <<  72 | bytes[7]  << 64 \
-                          bytes[8]  <<  56 | bytes[9]  <<  48 | bytes[10] <<  40 | bytes[11] << 32 \
-                          bytes[12] <<  24 | bytes[13] <<  16 | bytes[14] <<   8 | bytes[15])
-
-void dump_error_and_abort() {
+void handle_errors() {
   ERR_print_errors_fp(stderr);
   abort();
 }
@@ -29,35 +24,60 @@ void print_bytes(unsigned char random_bytes[]) {
 
 
 int main() {
-  unsigned char random_bytes1[RAND_SIZE];
-  unsigned char random_bytes2[RAND_SIZE];
+  BN_CTX* ctx = BN_CTX_new();
+  BIGNUM* result = BN_new();
+  BIGNUM* tmp1 = BN_new();
+  BIGNUM* tmp2 = BN_new();
+  BIGNUM* a = BN_new();
+  BIGNUM* b = BN_new();
+  BIGNUM* m = BN_new();
 
-  int random_number1[2];
-  int random_number2[2];
+  // Load OpenSSL facilities
+  ERR_load_crypto_strings();
 
-  if(RAND_load_file("/dev/random", SEED_SIZE) != SEED_SIZE)
-    dump_error_and_abort();
+  BN_set_word(tmp1, 2);
+  BN_set_word(tmp2, 256);
 
-  if(RAND_bytes(random_bytes1, RAND_SIZE) != 1)
-    dump_error_and_abort();
+  // Generate first number
+  if(!BN_rand(a, 256, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY))
+    handle_errors();
 
-  random_number1 = TO_INT256(random_bytes1);
-  printf("First number: %d\n", random_number1);
+  printf("A: ");
+  BN_print_fp(stdout, a);
+  printf("\n");
 
-  if(RAND_bytes(random_bytes2, RAND_SIZE) != 1)
-    dump_error_and_abort();
+  // Generate second number
+  if(!BN_rand(b, 256, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY))
+    handle_errors();
 
-  random_number2 = TO_INT256(random_bytes2);
-  printf("Second number: %d\n", random_number2);
+  printf("B: ");
+  BN_print_fp(stdout, b);
+  printf("\n");
 
+  // Generate modulus
+  if(!BN_exp(m, tmp1, tmp2, ctx))
+    handle_errors();
 
+  BN_free(tmp1);
+  BN_free(tmp2);
 
+  // Result
+  if(!BN_mod_add(result, a, b, m, ctx))
+    handle_errors();
 
+  printf("Result: ");
+  BN_print_fp(stdout, result);
+  printf("\n");
 
+  // Free all
+  BN_free(a);
+  BN_free(b);
+  BN_free(m);
+  BN_free(result);
 
-
-  printf("Result: %d", (random_number1 * random_number2) % (int)pow(2, 32));
-
+  BN_CTX_free(ctx);
+  CRYPTO_cleanup_all_ex_data();
+  ERR_free_strings();
 
   return 0;
 }

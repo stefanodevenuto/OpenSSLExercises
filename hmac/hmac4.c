@@ -21,6 +21,11 @@ void print_bytes(unsigned char bytes[], int n) {
     printf("\n");
 }
 
+void string_to_bytes(char* filename, int size, unsigned char result[]) {
+    for(int i = 0; i < size/2;i++)
+        sscanf(&filename[2*i],"%2hhx", &result[i]);
+}
+
 int main(int argc, char** argv) {
     unsigned char md_value[EVP_MD_size(EVP_sha256())];
     unsigned char buffer[MAXBUF];
@@ -28,11 +33,12 @@ int main(int argc, char** argv) {
     FILE* f;
     int n_read;
     int md_len;
+
     unsigned char key[EVP_MD_size(EVP_sha256())];
     int key_len;
 
-    unsigned char* message;
-    int total_size;
+    unsigned char ipad = 0x36;
+    unsigned char opad = 0x5C;
 
     if (argc < 3) {
         fprintf(stderr, "Missing parameter\n");
@@ -65,14 +71,25 @@ int main(int argc, char** argv) {
             handle_errors();
 
     } else {
-        memcpy(key, argv[2], strlen(argv[2]));
+        string_to_bytes(argv[2], strlen(argv[2]), key);
+        key_len = strlen(argv[2]) / 2;
+    }
+
+    unsigned char xored_ipad[key_len];
+    unsigned char xored_opad[key_len];
+
+    for(int i = 0; i < key_len; i++) {
+        xored_ipad[i] = key[i] ^ ipad;
+        xored_opad[i] = key[i] ^ opad;
     }
 
     // Re-Initialize Context
     if(!EVP_DigestInit(md, EVP_sha256()))
         handle_errors();
 
-    message = malloc(sizeof(*message));
+    // Add K XOR ipad at the beginning
+    if(!EVP_DigestUpdate(md, xored_ipad, key_len))
+      handle_errors();
 
     // Read and incrementally compute the digest
     while((n_read = fread(buffer, 1, MAXBUF, f)) > 0){
@@ -84,8 +101,24 @@ int main(int argc, char** argv) {
     if(!EVP_DigestFinal_ex(md, md_value, &md_len))
         handle_errors();
 
-    printf("Digest of %s: ", argv[1]);
-    print_bytes(md_value, md_len);
+    // Re-Initialize Context
+    if(!EVP_DigestInit(md, EVP_sha256()))
+        handle_errors();
+
+    // Add K XOR opad at the beginning
+    if(!EVP_DigestUpdate(md, xored_opad, key_len))
+      handle_errors();
+
+    // Read and incrementally compute the digest
+    if(!EVP_DigestUpdate(md, md_value, md_len))
+        handle_errors();
+
+    // Finalize
+    if(!EVP_DigestFinal_ex(md, md_value, &md_len))
+        handle_errors();
+
+    printf("Digest: ");
+    print_bytes(md_value, md_len);    
 
     // Free all
     fclose(f);

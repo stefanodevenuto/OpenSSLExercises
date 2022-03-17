@@ -46,7 +46,8 @@ int main() {
   } while(BN_cmp(p, g) < -1);
 
   // Alice generate a random number
-  BN_rand(x, 256, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY);
+  if(!BN_rand(x, 256, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY))
+    handle_errors();
   printf("[+] Alice Random number: ");
   BN_print_fp(stdout, x);
   printf("\n");
@@ -59,7 +60,8 @@ int main() {
   printf("\n\n");
 
   // Bob generate a random number
-  BN_rand(y, 256, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY);
+  if(!BN_rand(y, 256, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY))
+    handle_errors();
   printf("[+] Bob Random number: ");
   BN_print_fp(stdout, y);
   printf("\n");
