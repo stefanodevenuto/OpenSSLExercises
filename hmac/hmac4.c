@@ -70,6 +70,7 @@ int main(int argc, char** argv) {
         if(!EVP_DigestFinal_ex(md, key, &key_len))
             handle_errors();
 
+        EVP_MD_CTX_free(md);
     } else {
         string_to_bytes(argv[2], strlen(argv[2]), key);
         key_len = strlen(argv[2]) / 2;
@@ -82,6 +83,8 @@ int main(int argc, char** argv) {
         xored_ipad[i] = key[i] ^ ipad;
         xored_opad[i] = key[i] ^ opad;
     }
+
+    md = EVP_MD_CTX_new();
 
     // Re-Initialize Context
     if(!EVP_DigestInit(md, EVP_sha256()))
