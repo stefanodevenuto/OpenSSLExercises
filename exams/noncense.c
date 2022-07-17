@@ -48,33 +48,9 @@ int main(int argc, char const *argv[]) {
     RSA* rsa_keypair = RSA_new();
     if(!RSA_generate_key_ex(rsa_keypair, 2048, bne, NULL))
         handle_errors();
-
-    // Write private to file
-    FILE *rsa_private_file = NULL;
-	if((rsa_private_file = fopen("private.pem","w")) == NULL) {
-		fprintf(stderr,"Couldn't create the private key file.\n");
-		abort();
-    }
     
-    if(!PEM_write_RSAPrivateKey(rsa_private_file, rsa_keypair, EVP_aes_256_cbc(), key_simm, LENGTH, NULL, NULL))
+    if(!PEM_write_RSAPrivateKey(stdout, rsa_keypair, EVP_aes_256_cbc(), key_simm, LENGTH, NULL, NULL))
         handle_errors();
-    fclose(rsa_private_file);
-
-    ////////////////////////////////////////////////////////////////// Read ciphertext
-
-    FILE *f_in;
-    if((f_in = fopen("private.pem","r")) == NULL) {
-		fprintf(stderr,"Couldn't open the input file, try again\n");
-		abort();
-    }
-
-    unsigned char buffer[1000000];
-    printf("Ciphertext: ");
-    while((n_read = fread(buffer, 1, 1000000, f_in)) > 0){
-        for(int i = 0; i < n_read; i++)
-        	printf("%02x", buffer[i]);
-    }
-    printf("\n");
 
     RSA_free(rsa_keypair);
     BN_free(bne);
